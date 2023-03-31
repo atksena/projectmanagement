@@ -1,0 +1,28 @@
+version: "3.7"
+
+services:
+  backend:
+    build: backend
+    command: "python manage.py runserver 0.0.0.0:8000"
+    restart: on-failure
+    volumes:
+      - ./backend:/code
+    
+  frontend:
+    build: frontend
+    depends_on:
+      - backend
+    command:
+      - "yarn"
+      - "serve"
+      - "--port"
+      - "80"
+    volumes:
+      - ./frontend:/code
+      - /code/node_modules
+
+  nginx:
+    build: nginx
+    ports:
+      - "80:80"
+
