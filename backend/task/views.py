@@ -1,8 +1,8 @@
-from rest_framework import generics
+from rest_framework.viewsets import ModelViewSet
 from .models import Task, IssueType
 from .serializers import TaskSerializer, IssueTypeSerializer
 
-class TaskListCreateAPIView(generics.ListCreateAPIView):
+class TaskViewSet(ModelViewSet):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
 
@@ -10,7 +10,7 @@ class TaskListCreateAPIView(generics.ListCreateAPIView):
 #     queryset = Task.objects.all()
 #     serializer_class = TaskSerializer
 
-class IssueTypeListCreateAPIView(generics.ListCreateAPIView):
+class IssueTypeListCreateAPIView(ModelViewSet):
     queryset = IssueType.objects.all()
     serializer_class = IssueTypeSerializer
 
