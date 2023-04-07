@@ -5,25 +5,14 @@
       width="1000"
       hide-overlay
       transition="dialog-bottom-transition"
+      persistent
     >
       <create-issue
         v-if="showCreateIssue"
-        :currentTask="currentIssue"
+        :currentIssue="currentIssue"
         :index="editedIndex"
         @close="closeCreateIssue()"
       ></create-issue>
-    </v-dialog>
-    <v-dialog v-model="showDeleteDialog">
-      <v-card>
-        <v-card-title>
-          Are you sure you want to delete this task?
-        </v-card-title>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn @click="cancelDelete">Cancel</v-btn>
-          <v-btn @click="confirmDelete" color="red">Delete</v-btn>
-        </v-card-actions>
-      </v-card>
     </v-dialog>
     <v-app>
       <v-main>
@@ -33,7 +22,7 @@
             <v-spacer></v-spacer>
             <v-row class="mb-4">
               <v-card-text class="text--primary">
-                <v-simple-table fixed-header height="300px">
+                <v-simple-table fixed-header height="500px">
                   <template v-slot:default>
                     <thead>
                       <tr>
@@ -52,8 +41,9 @@
                             style="border: none; background-color: transparent"
                             class="mx-2"
                             outlined
-                            ><v-icon>mdi-delete-empty</v-icon></v-btn
                           >
+                            <v-icon>mdi-delete-empty</v-icon>
+                          </v-btn>
                           <v-btn
                             @click="editIssue(index)"
                             style="border: none; background-color: transparent"
@@ -92,7 +82,7 @@ import CreateIssue from "@/components/CreateIssue.vue";
 export default {
   // eslint-disable-next-line vue/no-unused-components
   components: { CreateIssue },
-  name: "IssueTYpe",
+  name: "IssueType",
   data() {
     return {
       showDeleteDialog: false,
@@ -103,39 +93,86 @@ export default {
       issues: [],
     };
   },
+  watch: {
+    numIssues: {
+      handler(newLength) {
+        localStorage.setItem("numIssues", newLength);
+      },
+    },
+  },
+  computed: {
+    numIssues() {
+      return this.issues.length;
+    },
+  },
   methods: {
     openCreateIssue() {
       this.showCreateIssue = true;
-      this.issues = JSON.parse(localStorage.getItem("issues")) || [];
+      this.issuesList();
     },
     closeCreateIssue() {
       this.showCreateIssue = false;
-      this.issues = JSON.parse(localStorage.getItem("issues")) || [];
+      this.issuesList();
       this.currentIssue = null;
       this.editedIndex = null;
     },
     deleteIssue(index) {
-      this.issueToDeleteIndex = index;
-      this.showDeleteDialog = true;
-    },
-    confirmDelete() {
-      this.issues.splice(this.issueToDeleteIndex, 1);
-      localStorage.setItem("issues", JSON.stringify(this.issues));
-      this.showDeleteDialog = false;
-      this.issueToDeleteIndex = null;
-    },
-    cancelDelete() {
-      this.showDeleteDialog = false;
-      this.issueToDeleteIndex = null;
+      if (!window.localStorage.getItem("access")) {
+        this.$router.push("/loginPage");
+        return;
+      }
+      const issueToDelete = this.issues[index];
+      fetch(`/api/issues/delete/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + window.localStorage.getItem("access"),
+        },
+        body: JSON.stringify({ id: issueToDelete.id }),
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("HTTP error " + response.status);
+          }
+          this.issues.splice(index, 1);
+        })
+        .catch((error) => {
+          console.error(error);
+        });
     },
     editIssue(index) {
       this.editedIndex = index;
-      this.currentIssue = this.issues[index];
+      this.currentIssue = { ...this.issues[index] };
       this.showCreateIssue = true;
     },
+    issuesList() {
+      const access = window.localStorage.getItem("access");
+      if (!access) {
+        window.location.href = "/loginPage";
+        return;
+      }
+      fetch("/api/issues/list/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${access}`,
+        },
+        body: JSON.stringify(this.issues),
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("HTTP error " + response.status);
+          }
+          return response.json();
+        })
+        .then((data) => {
+          this.issues = data;
+        });
+    },
   },
+
   created() {
-    this.issues = JSON.parse(localStorage.getItem("issues")) || [];
+    this.issuesList();
   },
 };
 </script>

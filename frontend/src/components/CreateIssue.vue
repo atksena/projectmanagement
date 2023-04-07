@@ -24,7 +24,7 @@
         <v-card-actions
           ><v-spacer></v-spacer>
           <v-btn class="mx-2" color="black" outlined @click="saveIssueType"
-            >Create</v-btn
+            >Add</v-btn
           ></v-card-actions
         >
       </v-form>
@@ -33,7 +33,6 @@
 </template>
 
 <script>
-import { v4 as uuidv4 } from "uuid";
 export default {
   name: "CreateIssue",
   props: {
@@ -42,42 +41,78 @@ export default {
   },
   data: () => ({
     issue: {
-      id: null,
       name: null,
       description: null,
     },
     issues: [],
   }),
   methods: {
-    resetIssue() {
-      this.issue = {
-        name: null,
-        description: null,
-      };
-    },
     saveIssueType() {
-      if (this.issue.id === null) {
-        this.issue.id = uuidv4();
+      if (!window.localStorage.getItem("access")) {
+        this.$router.push("/loginPage");
+        return;
       }
-      if (this.index !== null) {
-        this.issues[this.index] = this.issue;
-      } else {
-        this.issues.push(this.issue);
+      let url = "/api/issues/create/";
+      if (this.currentIssue) {
+        url = `/api/issues/update/`;
+        this.issue.id = this.currentIssue.id;
+        this.issuesList();
       }
-      this.resetIssue();
-      console.log(this.issues);
-
-      localStorage.setItem("issues", JSON.stringify(this.issues));
-      this.close();
+      const _this = this;
+      fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + window.localStorage.getItem("access"),
+        },
+        body: JSON.stringify(this.issue),
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("HTTP error " + response.status);
+          }
+          return response.json();
+        })
+        .then((data) => {
+          this.issues.push(data);
+          this.issuesList();
+          _this.close();
+        })
+        .catch((error) => {
+          console.error(error);
+        });
     },
+
     close() {
       this.$emit("close");
     },
+    issuesList() {
+      const access = window.localStorage.getItem("access");
+      if (!access) {
+        window.location.href = "/loginPage";
+        return;
+      }
+      fetch("/api/issues/list/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${access}`,
+        },
+        body: JSON.stringify(this.issues),
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("HTTP error " + response.status);
+          }
+          return response.json();
+        })
+        .then((data) => {
+          this.issues = data;
+        });
+    },
   },
   created() {
-    if (localStorage.getItem("issues") !== null) {
-      this.issues = JSON.parse(localStorage.getItem("issues"));
-    }
+    this.issuesList();
     if (this.currentIssue) {
       this.issue = { ...this.currentIssue };
     }

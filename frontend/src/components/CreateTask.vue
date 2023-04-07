@@ -28,15 +28,17 @@
           outlined
         ></v-select>
         <v-select
-          v-model="task.issuesName"
+          v-model="task.issue_type"
           :items="issuesNameItems"
           label="Issue Type"
           outlined
+          item-value="id"
+          item-text="name"
         ></v-select>
         <v-card-actions
           ><v-spacer></v-spacer>
           <v-btn class="mx-2" color="black" outlined @click="saveTask"
-            >Create</v-btn
+            >Add</v-btn
           ></v-card-actions
         >
       </v-form>
@@ -52,62 +54,84 @@ export default {
     index: Number,
   },
   data: () => ({
-    items: ["Highest", "High", "Medium", "Low"],
+    items: ["highest", "high", "medium", "low"],
     task: {
       summary: null,
       description: null,
       priority: null,
-      issuesName: null,
+      issue_type: null,
     },
     tasks: [],
-    issues: [],
+    issuesNameItems: [],
   }),
-  computed: {
-    issuesNameItems() {
-      return this.issues.map((issue) => issue.name);
-    },
-  },
   methods: {
-    resetTask() {
-      this.task = {
-        summary: null,
-        description: null,
-        priority: null,
-        issuesName: null,
-      };
-    },
     saveTask() {
-      if (this.index !== null) {
-        this.tasks[this.index] = this.task;
-      } else {
-        this.tasks.push(this.task);
+      if (!window.localStorage.getItem("access")) {
+        this.$router.push({ name: "LoginPage" });
+        return;
       }
-      this.resetTask();
-      console.log(this.tasks);
 
-      localStorage.setItem("tasks", JSON.stringify(this.tasks));
-      fetch("http://localhost", {
+      let url = "/api/tasks/create/";
+      if (this.currentTask) {
+        url = `/api/tasks/update/`;
+        this.task.id = this.currentTask.id;
+      }
+      const _this = this;
+      fetch(url, {
         method: "POST",
-        body: JSON.stringify(this.tasks),
-      });
-      this.close();
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${window.localStorage.getItem("access")}`,
+        },
+        body: JSON.stringify(this.task),
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("HTTP error " + response.status);
+          }
+          return response.json();
+        })
+        .then((data) => {
+          this.tasks.push(data);
+          _this.close();
+        })
+        .catch((error) => {
+          console.error(error);
+        });
     },
+
     close() {
       this.$emit("close");
     },
-    getIssueType() {
-      this.issues = JSON.parse(localStorage.getItem("issues"));
+    loadIssuesNameOptions() {
+      const access = window.localStorage.getItem("access");
+      if (!access) {
+        window.location.href = "/loginPage";
+        return;
+      }
+      fetch("/api/issues/list/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${access}`,
+        },
+        body: JSON.stringify(this.issues),
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("HTTP error " + response.status);
+          }
+          return response.json();
+        })
+        .then((data) => {
+          this.issuesNameItems = data;
+        });
     },
   },
   created() {
-    if (localStorage.getItem("tasks") !== null) {
-      this.tasks = JSON.parse(localStorage.getItem("tasks"));
-    }
+    this.loadIssuesNameOptions();
     if (this.currentTask) {
       this.task = { ...this.currentTask };
-    }
-    if (localStorage.getItem("issues") !== null) {
-      this.getIssueType();
     }
   },
 };
